@@ -2,12 +2,14 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 import os
+from datetime import datetime
 from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
+from flask_jwt_extended import create_access_token, current_user, jwt_required, JWTManager, get_jwt
 from flask_cors import CORS
 from api.utils import APIException, generate_sitemap
-from api.models import db
+from api.models import JWTTokenBlocklist, User, db
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
@@ -33,6 +35,26 @@ db.init_app(app)
 # Allow CORS requests to this API
 CORS(app)
 
+#  JWTManager init
+jwt = JWTManager(app)
+app.config["JWT_SECRET_KEY"] = "ceci y coco"
+
+@jwt.user_identity_loader
+def user_identity_lookup(user):
+    return user.id
+
+@jwt.user_lookup_loader
+def user_lookup_callback(_jwt_header, jwt_data):
+    identity = jwt_data["sub"]
+    return User.query.filter_by(id=identity).one_or_none()
+
+@jwt.token_in_blocklist_loader
+def check_if_token_is_revoked(jwt_header, jwt_payload):
+    jti = jwt_payload["jti"]
+    token = JWTTokenBlocklist.query.filter_by(jwt_token=jti).one_or_none()
+    return token is not None
+
+
 # add the admin
 setup_admin(app)
 
@@ -54,15 +76,37 @@ def sitemap():
         return generate_sitemap(app)
     return send_from_directory(static_file_dir, 'index.html')
 
-# any other endpoint will try to serve it like a static file
-@app.route('/<path:path>', methods=['GET'])
-def serve_any_other_file(path):
-    if not os.path.isfile(os.path.join(static_file_dir, path)):
-        path = 'index.html'
-    response = send_from_directory(static_file_dir, path)
-    response.cache_control.max_age = 0 # avoid cache memory
-    return response
+@app.route("/token", methods=["POST"])
+def generate_session_token():
+    email = request.get_json(force=True).get("email", None)
+    password = request.get_json(force=True).get("password", None)
 
+    user = User.query.filter_by(email=email).one_or_none()
+    if not user or not user.password == password:
+        return jsonify("Wrong email or password"), 401
+
+    access_token = create_access_token(identity=user)
+    return jsonify(access_token=access_token)
+
+
+@app.route("/logout", methods=["DELETE"])
+@jwt_required()
+def logout():
+    jti = get_jwt()["jti"]
+    jwt_blocked = JWTTokenBlocklist()
+    jwt_blocked.jwt_token = jti
+    jwt_blocked.created_at = datetime.now()
+    jwt_blocked.save()
+    return jsonify(msg="Access token revoked")
+
+
+@app.route("/who_am_i", methods=["GET"])
+@jwt_required()
+def protected():
+    return jsonify(
+        id=current_user.id,
+        email=current_user.email
+    )
 
 # this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':
