@@ -15,6 +15,7 @@ import PrivateView from "./pages/PrivateView.jsx";
 import LoginView from "./pages/LoginView.jsx";
 import SignUpView from "./pages/signUpView.jsx";
 import useToken from "./component/useToken";
+import LogOutView from "./pages/LogOutView.jsx";
 //create your first component
 
 const Layout = () => {
@@ -35,6 +36,7 @@ const Layout = () => {
             <Route element={<Home />} path="/" />
             <Route element={<LoginView setToken={setToken} />} path="/Login" />
             <Route element={<PrivateView />} path="/Private" />
+            <Route element={<LogOutView />} path="/LogOut" />
             <Route element={<SignUpView />} path="/Signup" />
             <Route element={<h1>Not found!</h1>} />
           </Routes>

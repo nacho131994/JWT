@@ -108,7 +108,23 @@ def protected():
         email=current_user.email
     )
 
+@app.route("/new_user", methods=["POST"])
+def create_new_user():
+    email = request.get_json(force=True).get("email", None)
+    password = request.get_json(force=True).get("password", None)
+    if email and password:
+        user = User()
+        user.email = email
+        user.password = password
+        user.is_active = True
+        db.session.add(user)
+        db.session.commit()
+        return jsonify("New user created"), 200
+    return jsonify("Wrong email or password"), 401
+
 # this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3001))
     app.run(host='0.0.0.0', port=PORT, debug=True)
+
+   

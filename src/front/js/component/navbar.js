@@ -14,7 +14,10 @@ export const Navbar = () => {
 				</Link>	
 				<Link to="/Private">
 					<button type="button" class="btn btn-primary">Private</button>
-				</Link>						
+				</Link>	
+				<Link to="/LogOut">
+					<button type="button" class="btn btn-primary">Log Out</button>
+				</Link>								
 			
 			</div>
 		</nav>
